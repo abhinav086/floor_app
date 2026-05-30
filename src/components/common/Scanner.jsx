@@ -19,7 +19,7 @@ export default function Scanner({ onScan, onClose, label = 'Scan barcode' }) {
         
         await scanner.start(
           { facingMode: 'environment' },
-          { fps: 10, qrbox: { width: 250, height: 150 } },
+          { fps: 10, qrbox: { width: 250, height: 250 } },
           (decodedText) => {
             handleScanResult(decodedText);
           },
@@ -70,7 +70,7 @@ export default function Scanner({ onScan, onClose, label = 'Scan barcode' }) {
       )}
 
       {/* Camera area */}
-      <div className="relative bg-gray-900 aspect-video">
+      <div className="relative bg-gray-900 aspect-square md:aspect-video w-full overflow-hidden">
         <div id="scanner-region" ref={scannerRef} className="w-full h-full"></div>
         {!cameraActive && (
           <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-400">
