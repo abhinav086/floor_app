@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
-  CheckCircle2, XCircle, ArrowDownToLine, PackageCheck, 
+  CheckCircle2, ArrowDownToLine, PackageCheck, 
   ClipboardList, TruckIcon, RefreshCw, Package, Loader2, Clock
 } from 'lucide-react';
 import { tasksAPI } from '../../services/api';
@@ -18,34 +18,34 @@ const taskTypeConfig = {
 };
 
 export default function MyTasksPage() {
-  const [task, setTask] = useState(null);
+  const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [acting, setActing] = useState(false);
+  const [actingId, setActingId] = useState(null);
   const { user } = useAuthStore();
   const navigate = useNavigate();
 
-  const fetchNextTask = async () => {
+  const fetchPendingTasks = async () => {
     if (!user?.id) return;
     try {
-      setLoading(true);
-      const { data } = await tasksAPI.getNext(user.id);
-      setTask(data.data);
+      // Don't set loading to true on background refresh to avoid UI flashing
+      const { data } = await tasksAPI.getPending(user.id);
+      setTasks(data.data || []);
     } catch (err) {
-      console.error('Fetch task error:', err);
+      console.error('Fetch tasks error:', err);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchNextTask();
-    const interval = setInterval(fetchNextTask, 10000);
+    fetchPendingTasks();
+    const interval = setInterval(fetchPendingTasks, 5000); // 5 seconds
     return () => clearInterval(interval);
   }, [user?.id]);
 
-  const handleAccept = async () => {
+  const handleStartWork = async (task) => {
     if (!task) return;
-    setActing(true);
+    setActingId(task.id);
     try {
       if (task.status === 'offered') {
         await tasksAPI.accept(task.id, user.id);
@@ -61,118 +61,97 @@ export default function MyTasksPage() {
       };
       navigate(taskRoutes[task.type] || '/floor/tasks', { state: { task } });
     } catch (err) {
-      alert(err.response?.data?.message || 'Accept failed');
+      alert(err.response?.data?.message || 'Start work failed');
     } finally {
-      setActing(false);
+      setActingId(null);
     }
   };
-
-  const handleDecline = async () => {
-    if (!task) return;
-    setActing(true);
-    try {
-      await tasksAPI.decline(task.id);
-      fetchNextTask();
-    } catch (err) {
-      alert(err.response?.data?.message || 'Decline failed');
-    } finally {
-      setActing(false);
-    }
-  };
-
-  const config = task ? taskTypeConfig[task.type] || taskTypeConfig.pick : null;
-  const TypeIcon = config?.icon || ClipboardList;
 
   return (
-    <div className="min-h-full flex flex-col">
-      <TopBar title="My Tasks" badge={user?.status === 'available' ? { text: 'Online', color: 'bg-green-50 text-green-700' } : null} />
+    <div className="min-h-full flex flex-col bg-gray-50">
+      <TopBar title="Pending Works" badge={user?.status === 'available' ? { text: 'Online', color: 'bg-green-50 text-green-700' } : null} />
 
       <div className="flex-1 max-w-md mx-auto w-full px-4 py-6">
         {loading ? (
           <div className="space-y-4">
-            <div className="skeleton h-48 w-full rounded-2xl"></div>
-            <div className="skeleton h-14 w-full rounded-xl"></div>
+            <div className="skeleton h-32 w-full rounded-2xl"></div>
+            <div className="skeleton h-32 w-full rounded-2xl"></div>
+            <div className="skeleton h-32 w-full rounded-2xl"></div>
           </div>
-        ) : !task ? (
+        ) : tasks.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-center">
-            <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mb-4">
+            <div className="w-20 h-20 bg-white shadow-sm border border-gray-100 rounded-full flex items-center justify-center mb-4">
               <CheckCircle2 className="w-10 h-10 text-gray-300" />
             </div>
-            <h2 className="text-lg font-bold text-gray-900 mb-1">No tasks right now</h2>
-            <p className="text-sm text-gray-500 mb-6">Check back soon. Auto-refreshing every 10s.</p>
-            <button onClick={fetchNextTask} className="flex items-center gap-2 px-5 py-2.5 bg-white border border-gray-200 rounded-xl text-sm font-medium text-gray-600 hover:bg-gray-50 transition">
-              <RefreshCw className="w-4 h-4" /> Refresh
+            <h2 className="text-lg font-bold text-gray-900 mb-1">No pending works</h2>
+            <p className="text-sm text-gray-500 mb-6">You're all caught up! New tasks will appear here automatically.</p>
+            <button onClick={() => { setLoading(true); fetchPendingTasks(); }} className="flex items-center gap-2 px-5 py-2.5 bg-white border border-gray-200 rounded-xl text-sm font-medium text-gray-600 hover:bg-gray-50 transition shadow-sm">
+              <RefreshCw className="w-4 h-4" /> Refresh List
             </button>
           </div>
         ) : (
-          <>
-            {/* Task Offer Card */}
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 mb-6">
-              {/* Type badge */}
-              <div className="flex items-center gap-3 mb-4">
-                <div className={`w-12 h-12 ${config.color} rounded-xl flex items-center justify-center shadow-lg`}>
-                  <TypeIcon className="w-6 h-6 text-white" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-bold text-gray-900">{config.label} Task</h3>
-                  <div className="flex items-center gap-2 mt-0.5">
-                    <span className={`px-2 py-0.5 rounded-md text-xs font-bold ${task.priority >= 7 ? 'bg-red-100 text-red-700' : task.priority >= 5 ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-600'}`}>
-                      P{task.priority}
-                    </span>
-                    <span className="text-xs text-gray-400 flex items-center gap-1"><Clock className="w-3 h-3" />{new Date(task.created_at).toLocaleTimeString()}</span>
-                  </div>
-                </div>
-              </div>
+          <div className="space-y-4 pb-20">
+            {tasks.map(task => {
+              const config = taskTypeConfig[task.type] || taskTypeConfig.pick;
+              const TypeIcon = config.icon || ClipboardList;
+              const isActive = task.status === 'accepted' || task.status === 'in_progress';
+              const isActing = actingId === task.id;
 
-              {/* Details */}
-              <div className="space-y-3 mb-2">
-                {task.sku_name && (
-                  <div className="flex justify-between items-center py-2 border-b border-gray-50">
-                    <span className="text-sm text-gray-500">Item</span>
-                    <span className="text-sm font-semibold text-gray-900">{task.sku_name}</span>
+              return (
+                <div key={task.id} className={`bg-white rounded-2xl shadow-sm border ${isActive ? 'border-blue-400 ring-2 ring-blue-50' : 'border-gray-200'} p-5 transition overflow-hidden relative`}>
+                  {isActive && (
+                    <div className="absolute top-0 inset-x-0 h-1 bg-blue-500"></div>
+                  )}
+                  
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className={`w-12 h-12 ${config.color} rounded-xl flex items-center justify-center shadow-lg`}>
+                      <TypeIcon className="w-6 h-6 text-white" />
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="text-lg font-bold text-gray-900 leading-tight">{config.label} Task</h3>
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className={`px-2 py-0.5 rounded-md text-xs font-bold ${task.priority >= 7 ? 'bg-red-100 text-red-700' : task.priority >= 5 ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-600'}`}>
+                          P{task.priority}
+                        </span>
+                        <span className="text-xs text-gray-400 flex items-center gap-1"><Clock className="w-3 h-3" />{new Date(task.created_at).toLocaleTimeString()}</span>
+                        {isActive && <span className="text-xs font-bold text-blue-600 uppercase">Active</span>}
+                      </div>
+                    </div>
                   </div>
-                )}
-                {task.qty && (
-                  <div className="flex justify-between items-center py-2 border-b border-gray-50">
-                    <span className="text-sm text-gray-500">Quantity</span>
-                    <span className="text-sm font-semibold text-gray-900">{task.qty}</span>
-                  </div>
-                )}
-                {task.origin_bin_code && (
-                  <div className="flex justify-between items-center py-2 border-b border-gray-50">
-                    <span className="text-sm text-gray-500">From Bin</span>
-                    <span className="text-sm font-mono font-semibold text-gray-900 bg-gray-100 px-2 py-0.5 rounded">{task.origin_bin_code}</span>
-                  </div>
-                )}
-                {task.dest_bin_code && (
-                  <div className="flex justify-between items-center py-2">
-                    <span className="text-sm text-gray-500">To Bin</span>
-                    <span className="text-sm font-mono font-semibold text-gray-900 bg-blue-50 text-blue-700 px-2 py-0.5 rounded">{task.dest_bin_code}</span>
-                  </div>
-                )}
-              </div>
-            </div>
 
-            {/* Action buttons */}
-            <div className="space-y-3">
-              <button
-                onClick={handleAccept}
-                disabled={acting}
-                className="w-full h-14 bg-green-600 hover:bg-green-700 text-white font-bold rounded-xl transition-all duration-200 disabled:opacity-50 flex items-center justify-center gap-2 text-lg shadow-lg shadow-green-600/25 active:scale-[0.98]"
-              >
-                {acting ? <Loader2 className="w-6 h-6 animate-spin" /> : <CheckCircle2 className="w-6 h-6" />}
-                {task.status === 'accepted' || task.status === 'in_progress' ? 'RESUME TASK' : 'ACCEPT TASK'}
-              </button>
-              <button
-                onClick={handleDecline}
-                disabled={acting}
-                className="w-full h-12 bg-white border-2 border-gray-200 text-gray-600 font-semibold rounded-xl transition-all duration-200 disabled:opacity-50 flex items-center justify-center gap-2 hover:bg-gray-50 active:scale-[0.98]"
-              >
-                <XCircle className="w-5 h-5" />
-                Decline
-              </button>
-            </div>
-          </>
+                  <div className="space-y-2 mb-4 bg-gray-50 rounded-xl p-3 border border-gray-100">
+                    {task.sku_name && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-xs font-medium text-gray-500 uppercase">Item</span>
+                        <span className="text-sm font-bold text-gray-900 text-right">{task.sku_name}</span>
+                      </div>
+                    )}
+                    {task.qty && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-xs font-medium text-gray-500 uppercase">Qty</span>
+                        <span className="text-sm font-bold text-gray-900">{task.qty}</span>
+                      </div>
+                    )}
+                    {task.origin_bin_code && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-xs font-medium text-gray-500 uppercase">From</span>
+                        <span className="text-sm font-mono font-bold text-gray-900 bg-white border border-gray-200 px-1.5 py-0.5 rounded shadow-sm">{task.origin_bin_code}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  <button
+                    onClick={() => handleStartWork(task)}
+                    disabled={isActing}
+                    className={`w-full h-12 ${isActive ? 'bg-blue-600 hover:bg-blue-700' : 'bg-gray-900 hover:bg-gray-800'} text-white font-bold rounded-xl transition-all duration-200 disabled:opacity-50 flex items-center justify-center gap-2 text-sm shadow-lg ${isActive ? 'shadow-blue-600/25' : 'shadow-gray-900/25'} active:scale-[0.98]`}
+                  >
+                    {isActing ? <Loader2 className="w-5 h-5 animate-spin" /> : null}
+                    {isActive ? 'RESUME WORK' : 'START WORK'}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
         )}
       </div>
     </div>

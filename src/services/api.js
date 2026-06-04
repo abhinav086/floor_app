@@ -76,6 +76,7 @@ export const tasksAPI = {
   getAll: (params) => api.get('/tasks', { params }),
   getById: (id) => api.get(`/tasks/${id}`),
   getNext: (workerId) => api.get('/tasks/next', { params: { worker_id: workerId } }),
+  getPending: (workerId) => api.get('/tasks/pending', { params: { worker_id: workerId } }),
   getHistory: (workerId) => api.get('/tasks/history', { params: { worker_id: workerId } }),
   accept: (id, workerId) => api.post(`/tasks/${id}/accept`, { worker_id: workerId }),
   decline: (id) => api.post(`/tasks/${id}/decline`),

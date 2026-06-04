@@ -83,8 +83,11 @@ export default function ReceiveTaskPage() {
             </div>
 
             <button onClick={handleComplete} disabled={completing} className="w-full h-14 bg-green-600 hover:bg-green-700 text-white font-bold rounded-xl transition disabled:opacity-50 flex items-center justify-center gap-2 text-lg shadow-lg shadow-green-600/25 active:scale-[0.98]">
-              {completing ? <Loader2 className="w-6 h-6 animate-spin" /> : <CheckCircle2 className="w-6 h-6" />}
-              Confirm Receive
+              {completing ? (
+                <><Loader2 className="w-6 h-6 animate-spin" /> Confirming...</>
+              ) : (
+                <><CheckCircle2 className="w-6 h-6" /> Confirm Receive</>
+              )}
             </button>
           </>
         )}

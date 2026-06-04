@@ -57,9 +57,9 @@ export default function PickTaskPage() {
         {/* Pick line */}
         <div className={`bg-white rounded-2xl shadow-sm border ${picked ? 'border-green-200' : 'border-gray-100'} p-5 mb-4`}>
           <div className="flex items-start gap-3">
-            <button onClick={() => setPicked(!picked)} className="mt-0.5">
+            <div className="mt-0.5">
               {picked ? <CheckSquare className="w-6 h-6 text-green-600" /> : <Square className="w-6 h-6 text-gray-300" />}
-            </button>
+            </div>
             <div className="flex-1">
               <div className="flex items-center justify-between mb-2">
                 <p className="text-base font-semibold text-gray-900">{task.sku_name || 'Item'}</p>
@@ -67,7 +67,6 @@ export default function PickTaskPage() {
               </div>
               <div className="flex gap-4 text-sm text-gray-500">
                 <span>From: <span className="font-mono font-semibold text-gray-700 bg-gray-100 px-1.5 py-0.5 rounded">{task.origin_bin_code || 'N/A'}</span></span>
-                <span>To: <span className="font-mono font-semibold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded">{task.dest_bin_code || 'Pack'}</span></span>
               </div>
             </div>
           </div>
@@ -101,8 +100,11 @@ export default function PickTaskPage() {
 
         {picked && (
           <button onClick={handleComplete} disabled={completing} className="w-full h-14 bg-green-600 hover:bg-green-700 text-white font-bold rounded-xl transition disabled:opacity-50 flex items-center justify-center gap-2 text-lg shadow-lg shadow-green-600/25 active:scale-[0.98]">
-            {completing ? <Loader2 className="w-6 h-6 animate-spin" /> : <CheckCircle2 className="w-6 h-6" />}
-            Complete Pick
+            {completing ? (
+              <><Loader2 className="w-6 h-6 animate-spin" /> Completing...</>
+            ) : (
+              <><CheckCircle2 className="w-6 h-6" /> Complete Pick</>
+            )}
           </button>
         )}
       </div>

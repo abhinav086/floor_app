@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { CheckCircle2, Loader2, CheckSquare, Square, FileText } from 'lucide-react';
-import { tasksAPI } from '../../services/api';
+import { tasksAPI, ordersAPI } from '../../services/api';
 import useAuthStore from '../../store/authStore';
 import TopBar from '../../components/floor/TopBar';
 
@@ -13,10 +13,27 @@ export default function PackTaskPage() {
   const [itemsPacked, setItemsPacked] = useState({});
   const [showSlip, setShowSlip] = useState(false);
   const [completing, setCompleting] = useState(false);
+  const [orderLines, setOrderLines] = useState([]);
+  const [loadingOrder, setLoadingOrder] = useState(!!task?.related_order_id);
+
+  useEffect(() => {
+    if (task?.related_order_id) {
+      ordersAPI.getById(task.related_order_id)
+        .then(res => {
+          setOrderLines(res.data?.data?.lines || []);
+        })
+        .catch(err => console.error("Failed to load order lines", err))
+        .finally(() => setLoadingOrder(false));
+    }
+  }, [task?.related_order_id]);
 
   if (!task) return <div className="p-8 text-center"><p className="text-gray-500">No task data.</p></div>;
 
-  const items = [{ id: '1', name: task.sku_name || 'Item', qty: task.qty || 1 }];
+  // Use order lines if available, otherwise fallback to basic task info
+  const items = orderLines.length > 0 
+    ? orderLines.map(line => ({ id: line.id, name: line.sku_name || line.sku_code || 'Item', qty: line.qty }))
+    : [{ id: '1', name: task.sku_name || 'Multiple Items', qty: task.qty || 1 }];
+
   const allPacked = items.every(item => itemsPacked[item.id]);
 
   const handleComplete = async () => {
@@ -42,7 +59,11 @@ export default function PackTaskPage() {
 
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 mb-4">
           <p className="text-sm font-semibold text-gray-700 mb-3">Items Checklist</p>
-          {items.map(item => (
+          {loadingOrder ? (
+            <div className="flex items-center justify-center p-4">
+              <Loader2 className="w-5 h-5 animate-spin text-gray-400" />
+            </div>
+          ) : items.map(item => (
             <button key={item.id} onClick={() => setItemsPacked(p => ({ ...p, [item.id]: !p[item.id] }))} className="w-full flex items-center gap-3 py-3 border-b border-gray-50 last:border-0">
               {itemsPacked[item.id] ? <CheckSquare className="w-6 h-6 text-green-600" /> : <Square className="w-6 h-6 text-gray-300" />}
               <span className={`text-sm flex-1 text-left ${itemsPacked[item.id] ? 'text-gray-400 line-through' : 'text-gray-900 font-medium'}`}>{item.name}</span>
@@ -62,8 +83,15 @@ export default function PackTaskPage() {
               <h3 className="text-lg font-bold text-gray-900 mb-4">📋 Packing Slip</h3>
               <div className="border border-gray-200 rounded-xl p-4 bg-gray-50 text-sm space-y-2 font-mono">
                 <p><strong>Order:</strong> {task.related_order_id?.slice(0,8) || 'N/A'}</p>
-                <p><strong>Item:</strong> {task.sku_name}</p>
-                <p><strong>Qty:</strong> {task.qty}</p>
+                <div className="py-2 border-y border-gray-200 my-2">
+                  <p className="font-bold mb-1">Items:</p>
+                  {items.map(item => (
+                    <div key={item.id} className="flex justify-between text-xs mb-1">
+                      <span className="truncate pr-2">{item.name}</span>
+                      <span>x{item.qty}</span>
+                    </div>
+                  ))}
+                </div>
                 <p><strong>Packed by:</strong> {user?.name}</p>
                 <p><strong>Date:</strong> {new Date().toLocaleDateString()}</p>
               </div>
@@ -72,10 +100,13 @@ export default function PackTaskPage() {
           </div>
         )}
 
-        {allPacked && (
+        {allPacked && !loadingOrder && (
           <button onClick={handleComplete} disabled={completing} className="w-full h-14 bg-green-600 hover:bg-green-700 text-white font-bold rounded-xl transition disabled:opacity-50 flex items-center justify-center gap-2 text-lg shadow-lg shadow-green-600/25 active:scale-[0.98]">
-            {completing ? <Loader2 className="w-6 h-6 animate-spin" /> : <CheckCircle2 className="w-6 h-6" />}
-            Confirm Packed
+            {completing ? (
+              <><Loader2 className="w-6 h-6 animate-spin" /> Completing...</>
+            ) : (
+              <><CheckCircle2 className="w-6 h-6" /> Confirm Packed</>
+            )}
           </button>
         )}
       </div>

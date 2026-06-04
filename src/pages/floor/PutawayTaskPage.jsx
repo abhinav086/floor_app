@@ -70,6 +70,25 @@ export default function PutawayTaskPage() {
           <p className="text-sm text-gray-500 mb-1">Item to Put Away</p>
           <p className="text-base font-semibold text-gray-900">{task.sku_name || task.sku_code}</p>
           {task.qty && <p className="text-sm text-gray-500 mt-1">Qty: <span className="font-bold text-gray-900">{task.qty}</span></p>}
+          
+          {/* Trip Calculation */}
+          {(() => {
+            const totalWeight = task.qty * (task.sku_weight_kg || 0);
+            const maxSafeWeight = parseFloat(user.max_safe_weight) || 25;
+            const trips = Math.ceil(totalWeight / maxSafeWeight);
+            if (trips > 1) {
+              return (
+                <div className="mt-4 bg-blue-50 border border-blue-100 rounded-xl p-3">
+                  <p className="text-sm font-semibold text-blue-900 mb-1">Heavy Load</p>
+                  <p className="text-xs text-blue-800">
+                    Total weight: <strong>{totalWeight.toFixed(1)}kg</strong>.<br/>
+                    Based on your max safe weight of {maxSafeWeight}kg, you will need <strong>{trips} trips</strong> to complete this putaway.
+                  </p>
+                </div>
+              );
+            }
+            return null;
+          })()}
         </div>
 
         {/* Scanner */}
@@ -114,8 +133,11 @@ export default function PutawayTaskPage() {
         {/* Complete button */}
         {binScanned && (
           <button onClick={handleComplete} disabled={completing} className="w-full h-14 bg-green-600 hover:bg-green-700 text-white font-bold rounded-xl transition disabled:opacity-50 flex items-center justify-center gap-2 text-lg shadow-lg shadow-green-600/25 active:scale-[0.98]">
-            {completing ? <Loader2 className="w-6 h-6 animate-spin" /> : <CheckCircle2 className="w-6 h-6" />}
-            Complete Putaway
+            {completing ? (
+              <><Loader2 className="w-6 h-6 animate-spin" /> Completing...</>
+            ) : (
+              <><CheckCircle2 className="w-6 h-6" /> Complete Putaway</>
+            )}
           </button>
         )}
       </div>
